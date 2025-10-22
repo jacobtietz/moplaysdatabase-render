@@ -3,8 +3,8 @@ import express from "express";
 import User from "../models/User.js";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
-import sendEmail from "../utils/sendEmail.js"; // used for forgot/reset password
-import sendAccountEmail from "../utils/Email.js"; // <-- added: handles signup email
+import sendEmail from "../utils/sendEmail.js";
+import sendAccountEmail from "../utils/Email.js";
 
 const router = express.Router();
 
@@ -19,16 +19,14 @@ router.post("/signup", async (req, res) => {
     account,
     contact,
     schoolName,
-    over18, // in case playwrights have this field
+    over18,
   } = req.body;
 
   try {
-    // Check for existing account
     const existingUser = await User.findOne({ email });
     if (existingUser)
       return res.status(400).json({ message: "Email already in use" });
 
-    // Create new user
     const newUser = new User({
       firstName,
       lastName,
@@ -40,7 +38,6 @@ router.post("/signup", async (req, res) => {
       schoolName,
     });
 
-    // Add blank profile for playwrights
     if (account === 1) {
       newUser.profile = {
         profilePicture: "",
@@ -54,27 +51,21 @@ router.post("/signup", async (req, res) => {
       };
     }
 
-    // Save new user
     await newUser.save();
 
-    // Send account creation emails BEFORE responding
     try {
       await sendAccountEmail(newUser);
     } catch (emailErr) {
       console.error("❌ Failed to send account creation email:", emailErr);
-      // Not throwing — allow account creation even if email fails
     }
 
-    // Respond after email is sent
     res.status(201).json({
       message: "Account created successfully",
       userId: newUser._id,
     });
   } catch (err) {
     console.error("Signup error:", err);
-    res
-      .status(500)
-      .json({ message: "Server error. Please try again later." });
+    res.status(500).json({ message: "Server error. Please try again later." });
   }
 });
 
@@ -99,8 +90,8 @@ router.post("/login", async (req, res) => {
 
     res.cookie("token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production", // must be true in prod
+      sameSite: "None", // allows cross-site cookies
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -115,9 +106,7 @@ router.post("/login", async (req, res) => {
     });
   } catch (err) {
     console.error("Login error:", err);
-    res
-      .status(500)
-      .json({ message: "Server error. Please try again later." });
+    res.status(500).json({ message: "Server error. Please try again later." });
   }
 });
 
@@ -146,8 +135,8 @@ router.get("/check", verifyToken);
 router.post("/logout", (req, res) => {
   res.clearCookie("token", {
     httpOnly: true,
-    sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
+    sameSite: "None",
   });
   res.status(200).json({ message: "Logged out successfully" });
 });
@@ -186,9 +175,7 @@ router.post("/forgot-password", async (req, res) => {
       .json({ message: "If an account exists, a reset link has been sent." });
   } catch (err) {
     console.error("Forgot-password error:", err);
-    res
-      .status(500)
-      .json({ message: "Server error. Please try again later." });
+    res.status(500).json({ message: "Server error. Please try again later." });
   }
 });
 
@@ -206,22 +193,21 @@ router.post("/reset-password/:token", async (req, res) => {
     if (!user)
       return res.status(400).json({ message: "Invalid or expired token" });
 
-    // Assign password directly; pre-save hook in User.js hashes it
     user.password = newPassword;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();
 
-    // Optional: auto-login like Login.js
     const jwtToken = jwt.sign(
       { id: user._id, account: user.account },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
+
     res.cookie("token", jwtToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      sameSite: "None",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -236,9 +222,7 @@ router.post("/reset-password/:token", async (req, res) => {
     });
   } catch (err) {
     console.error("Reset-password error:", err);
-    res
-      .status(500)
-      .json({ message: "Server error. Please try again later." });
+    res.status(500).json({ message: "Server error. Please try again later." });
   }
 });
 

@@ -23,7 +23,7 @@ const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:3000";
 app.use(
   cors({
     origin: CLIENT_URL,      // allow frontend
-    credentials: true,       // allow cookies to be sent
+    credentials: true,       // allow cookies to be sent cross-site
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
