@@ -14,6 +14,8 @@ async function sendAccountEmail(user, customMessage = null) {
     lastName = "",
     phone = "",
     account,
+    schoolName = "",
+    contact = "",
   } = user;
 
   const accountType =
@@ -52,10 +54,12 @@ async function sendAccountEmail(user, customMessage = null) {
   const adminMessage = `
 A new MO Plays account has been created.
 
-📧 Email: ${email}
-👤 Name: ${firstName} ${lastName}
-📞 Phone Number: ${phone}
-🏷️ Account Type: ${accountType}
+Email: ${email}
+Name: ${firstName} ${lastName}
+Phone Number: ${phone}
+Account Type: ${accountType}
+School: ${schoolName || "N/A"}
+Contact: ${contact || "N/A"}
 
 Please review and verify the account.
 `;

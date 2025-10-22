@@ -2,20 +2,33 @@
 import express from "express";
 import User from "../models/User.js";
 import crypto from "crypto";
-import sendEmail from "../utils/sendEmail.js";
 import jwt from "jsonwebtoken";
+import sendEmail from "../utils/sendEmail.js"; // used for forgot/reset password
+import sendAccountEmail from "../utils/Email.js"; // <-- added: handles signup email
 
 const router = express.Router();
 
 // ------------------ SIGNUP ------------------
 router.post("/signup", async (req, res) => {
-  const { firstName, lastName, email, phone, password, account, contact, schoolName } = req.body;
+  const {
+    firstName,
+    lastName,
+    email,
+    phone,
+    password,
+    account,
+    contact,
+    schoolName,
+    over18, // in case playwrights have this field
+  } = req.body;
 
   try {
+    // Check for existing account
     const existingUser = await User.findOne({ email });
     if (existingUser)
       return res.status(400).json({ message: "Email already in use" });
 
+    // Create new user
     const newUser = new User({
       firstName,
       lastName,
@@ -27,6 +40,7 @@ router.post("/signup", async (req, res) => {
       schoolName,
     });
 
+    // Add blank profile for playwrights
     if (account === 1) {
       newUser.profile = {
         profilePicture: "",
@@ -40,12 +54,27 @@ router.post("/signup", async (req, res) => {
       };
     }
 
+    // Save new user
     await newUser.save();
 
-    res.status(201).json({ message: "Account created successfully", userId: newUser._id });
+    // Send account creation emails BEFORE responding
+    try {
+      await sendAccountEmail(newUser);
+    } catch (emailErr) {
+      console.error("❌ Failed to send account creation email:", emailErr);
+      // Not throwing — allow account creation even if email fails
+    }
+
+    // Respond after email is sent
+    res.status(201).json({
+      message: "Account created successfully",
+      userId: newUser._id,
+    });
   } catch (err) {
     console.error("Signup error:", err);
-    res.status(500).json({ message: "Server error. Please try again later." });
+    res
+      .status(500)
+      .json({ message: "Server error. Please try again later." });
   }
 });
 
@@ -62,7 +91,11 @@ router.post("/login", async (req, res) => {
     if (!isMatch)
       return res.status(401).json({ message: "Invalid email or password" });
 
-    const token = jwt.sign({ id: user._id, account: user.account }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    const token = jwt.sign(
+      { id: user._id, account: user.account },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
 
     res.cookie("token", token, {
       httpOnly: true,
@@ -82,14 +115,17 @@ router.post("/login", async (req, res) => {
     });
   } catch (err) {
     console.error("Login error:", err);
-    res.status(500).json({ message: "Server error. Please try again later." });
+    res
+      .status(500)
+      .json({ message: "Server error. Please try again later." });
   }
 });
 
 // ------------------ CHECK LOGIN STATUS ------------------
 const verifyToken = async (req, res) => {
   const token = req.cookies.token;
-  if (!token) return res.status(401).json({ message: "User not authenticated" });
+  if (!token)
+    return res.status(401).json({ message: "User not authenticated" });
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -123,7 +159,9 @@ router.post("/forgot-password", async (req, res) => {
   try {
     const user = await User.findOne({ email });
     if (!user)
-      return res.status(200).json({ message: "If an account exists, a reset link has been sent." });
+      return res
+        .status(200)
+        .json({ message: "If an account exists, a reset link has been sent." });
 
     const resetToken = crypto.randomBytes(32).toString("hex");
     const resetTokenExpiry = Date.now() + 3600000;
@@ -132,7 +170,9 @@ router.post("/forgot-password", async (req, res) => {
     user.resetPasswordExpires = resetTokenExpiry;
     await user.save();
 
-    const resetLink = `${process.env.CLIENT_URL || "http://localhost:3000"}/reset-password/${resetToken}`;
+    const resetLink = `${
+      process.env.CLIENT_URL || "http://localhost:3000"
+    }/reset-password/${resetToken}`;
 
     await sendEmail({
       to: email,
@@ -141,10 +181,14 @@ router.post("/forgot-password", async (req, res) => {
       html: `<p>Click <a href="${resetLink}">here</a> to reset your password.</p>`,
     });
 
-    res.status(200).json({ message: "If an account exists, a reset link has been sent." });
+    res
+      .status(200)
+      .json({ message: "If an account exists, a reset link has been sent." });
   } catch (err) {
     console.error("Forgot-password error:", err);
-    res.status(500).json({ message: "Server error. Please try again later." });
+    res
+      .status(500)
+      .json({ message: "Server error. Please try again later." });
   }
 });
 
@@ -169,7 +213,11 @@ router.post("/reset-password/:token", async (req, res) => {
     await user.save();
 
     // Optional: auto-login like Login.js
-    const jwtToken = jwt.sign({ id: user._id, account: user.account }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    const jwtToken = jwt.sign(
+      { id: user._id, account: user.account },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
     res.cookie("token", jwtToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -188,7 +236,9 @@ router.post("/reset-password/:token", async (req, res) => {
     });
   } catch (err) {
     console.error("Reset-password error:", err);
-    res.status(500).json({ message: "Server error. Please try again later." });
+    res
+      .status(500)
+      .json({ message: "Server error. Please try again later." });
   }
 });
 
