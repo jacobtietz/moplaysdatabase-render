@@ -1,47 +1,60 @@
 // server.js
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-require('dotenv').config();
+import express from "express";
+import mongoose from "mongoose";
+import cors from "cors";
+import cookieParser from "cookie-parser";
+import dotenv from "dotenv";
+import path from "path";
+
+dotenv.config();
+
+import authRoutes from "./routes/auth.js";
+import userRoutes from "./routes/userRoutes.js";
+import playRoutes from "./routes/playRoutes.js";
 
 const app = express();
+
+// ---------------- Middleware ----------------
 app.use(express.json());
+app.use(cookieParser());
 
-// CORS: allow frontend requests
-const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
-app.use(cors({ origin: CLIENT_URL }));
+// ---------------- CORS ----------------
+const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:3000";
+app.use(
+  cors({
+    origin: CLIENT_URL,      // allow frontend
+    credentials: true,       // allow cookies to be sent
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
-// MongoDB connection
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.error('MongoDB connection error:', err));
+// ---------------- Serve uploaded images ----------------
+app.use("/uploads", express.static(path.join(path.resolve(), "uploads")));
 
-// Import Play model
-const Play = require('./models/Play');
+// ---------------- MongoDB ----------------
+mongoose
+  .connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch((err) => console.error("❌ MongoDB connection error:", err));
 
-// GET all plays
-app.get('/api/plays', async (req, res) => {
-  try {
-    const plays = await Play.find({});
-    res.json(plays);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+// ---------------- Routes ----------------
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/plays", playRoutes);
+
+// ---------------- Test ----------------
+app.get("/api/hello", (req, res) => res.json({ msg: "Hello from backend!" }));
+
+// ---------------- Global Error Handler ----------------
+app.use((err, req, res, next) => {
+  console.error("Global Error:", err);
+  res.status(500).json({ message: err.message || "Server error" });
 });
 
-// POST a new play (optional)
-app.post('/api/plays', async (req, res) => {
-  try {
-    const play = new Play(req.body);
-    await play.save();
-    res.json(play);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Test route (optional)
-app.get('/api/hello', (req, res) => res.json({ msg: 'Hello from backend!' }));
-
+// ---------------- Start Server ----------------
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
