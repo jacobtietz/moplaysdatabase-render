@@ -3,7 +3,8 @@ import express from "express";
 import User from "../models/User.js";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
-import { sendEmail, sendAccountEmail } from "../utils/sendGridEmail.js";
+import sendEmail from "../utils/sendEmail.js";
+import sendAccountEmail from "../utils/Email.js";
 
 const router = express.Router();
 
@@ -89,8 +90,8 @@ router.post("/login", async (req, res) => {
 
     res.cookie("token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "None",
+      secure: process.env.NODE_ENV === "production", // must be true in prod
+      sameSite: "None", // allows cross-site cookies
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
