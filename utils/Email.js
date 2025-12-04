@@ -1,4 +1,6 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 async function sendAccountEmail(user, customMessage = null) {
   const adminEmail = "moplaysdatabase@gmail.com";
@@ -23,24 +25,14 @@ async function sendAccountEmail(user, customMessage = null) {
     account === 1 ? "Playwright" :
     "Unknown";
 
-  const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 587,
-    secure: false,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-
   // If this is a custom message (like a password reset)
   if (customMessage) {
     const subject = customMessage.startsWith("Reset")
       ? "Password Reset - MO Plays"
       : "MO Plays Notification";
 
-    await transporter.sendMail({
-      from: `"MO Plays" <${process.env.EMAIL_USER}>`,
+    await resend.emails.send({
+      from: "MO Plays <no-reply@moplays.resend.dev>",
       to: email,
       subject,
       text: customMessage,
@@ -50,7 +42,7 @@ async function sendAccountEmail(user, customMessage = null) {
     return;
   }
 
-  // Otherwise, handle standard account creation emails
+  // Standard account creation messages
   const adminMessage = `
 A new MO Plays account has been created.
 
@@ -75,16 +67,16 @@ We appreciate your patience — thank you!
 `;
 
   // Send admin email
-  await transporter.sendMail({
-    from: `"MO Plays" <${process.env.EMAIL_USER}>`,
+  await resend.emails.send({
+    from: "MO Plays <no-reply@moplays.resend.dev>",
     to: adminEmail,
     subject: `New MO Plays Account Created: ${firstName} ${lastName}`,
     text: adminMessage,
   });
 
   // Send user email
-  await transporter.sendMail({
-    from: `"MO Plays" <${process.env.EMAIL_USER}>`,
+  await resend.emails.send({
+    from: "MO Plays <no-reply@moplays.resend.dev>",
     to: email,
     subject: "Welcome to MO Plays!",
     text: userMessage,

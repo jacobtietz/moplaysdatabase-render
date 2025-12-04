@@ -1,31 +1,26 @@
-import nodemailer from 'nodemailer';
+import { Resend } from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const sendEmail = async ({ to, subject, text, html }) => {
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-        throw new Error('Email credentials are not set in environment variables.');
-    }
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("Resend API key is not set in environment variables.");
+  }
 
-    const transporter = nodemailer.createTransport({
-        service: 'Gmail',
-        auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS,
-        },
+  try {
+    await resend.emails.send({
+      from: "MPDB Support <no-reply@moplays.resend.dev>", // change to your verified domain
+      to,
+      subject,
+      text,
+      html,
     });
 
-    try {
-        await transporter.sendMail({
-            from: `"MPDB Support" <${process.env.EMAIL_USER}>`,
-            to,
-            subject,
-            text,
-            html,
-        });
-        console.log(`Email sent to ${to} successfully.`);
-    } catch (err) {
-        console.error('Nodemailer error:', err);
-        throw err;
-    }
+    console.log(`✅ Email sent to ${to} successfully.`);
+  } catch (err) {
+    console.error("Resend error:", err);
+    throw err;
+  }
 };
 
 export default sendEmail;
