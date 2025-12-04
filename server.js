@@ -11,6 +11,7 @@ dotenv.config();
 import authRoutes from "./routes/auth.js";
 import userRoutes from "./routes/userRoutes.js";
 import playRoutes from "./routes/playRoutes.js";
+import { sendContactEmail } from "./utils/Email.js";
 
 const app = express();
 
@@ -45,6 +46,15 @@ mongoose
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/plays", playRoutes);
+app.post("/api/contact", async (req, res) => {
+  try {
+    await sendContactEmail(req.body);
+    res.json({ message: "Message sent successfully." });
+  } catch (err) {
+    console.error("Contact form error:", err);
+    res.status(500).json({ message: err.message || "Failed to send message." });
+  }
+});
 
 // ---------------- Test ----------------
 app.get("/api/hello", (req, res) => res.json({ msg: "Hello from backend!" }));
@@ -58,3 +68,4 @@ app.use((err, req, res, next) => {
 // ---------------- Start Server ----------------
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
