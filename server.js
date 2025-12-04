@@ -12,6 +12,7 @@ import authRoutes from "./routes/auth.js";
 import userRoutes from "./routes/userRoutes.js";
 import playRoutes from "./routes/playRoutes.js";
 import { sendContactEmail } from "./utils/Email.js";
+import contactRoutes from "./routes/contactRoutes.js";
 
 const app = express();
 
@@ -46,6 +47,7 @@ mongoose
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/plays", playRoutes);
+app.use("/api/contact", contactRoutes);
 app.post("/api/contact", async (req, res) => {
   try {
     await sendContactEmail(req.body);
