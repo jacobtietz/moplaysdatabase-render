@@ -4,7 +4,7 @@ import { sendEmail } from "../utils/Email.js";
 
 /**
  * Send a message from the logged-in user to a target user
- * Rate-limited per target user to prevent spam
+ * Enforces a cooldown to prevent spamming
  */
 export const contactUser = async (req, res) => {
   try {
@@ -16,30 +16,24 @@ export const contactUser = async (req, res) => {
       return res.status(400).json({ message: "Message cannot be empty" });
     }
 
-    // Find the target user
+    // ----------------- COOLDOWN LOGIC -----------------
+    const COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+    const now = Date.now();
+
+    if (sender.lastMessageSentAt && now - sender.lastMessageSentAt.getTime() < COOLDOWN_MS) {
+      const waitTime = Math.ceil((COOLDOWN_MS - (now - sender.lastMessageSentAt.getTime())) / 60000);
+      return res.status(429).json({ 
+        message: `Please wait ${waitTime} more minute(s) before sending another message.` 
+      });
+    }
+
+    // ----------------- FIND TARGET USER -----------------
     const targetUser = await User.findById(targetUserId);
     if (!targetUser) {
       return res.status(404).json({ message: "Target user not found" });
     }
 
-    // ---------------- RATE LIMIT CHECK ----------------
-    const COOLDOWN_MS = 60 * 60 * 1000; // 5 minutes
-    const now = Date.now();
-
-    // Ensure sender.messagesSent exists
-    sender.messagesSent = sender.messagesSent || [];
-
-    // Filter messages sent to this target
-    const lastMessage = sender.messagesSent
-      .filter(msg => msg.to.toString() === targetUserId)
-      .sort((a, b) => b.sentAt - a.sentAt)[0];
-
-    if (lastMessage && now - new Date(lastMessage.sentAt).getTime() < COOLDOWN_MS) {
-      const waitSeconds = Math.ceil((COOLDOWN_MS - (now - new Date(lastMessage.sentAt).getTime())) / 1000);
-      return res.status(429).json({ message: `You must wait ${waitSeconds} seconds before sending another message to this user.` });
-    }
-
-    // ---------------- SEND EMAIL ----------------
+    // ----------------- CONSTRUCT EMAIL -----------------
     const emailSubject = `Message from ${sender.firstName} ${sender.lastName} via MPDB`;
     const emailBody = `
 You have received a message via MPDB from a registered user:
@@ -52,14 +46,15 @@ Message:
 ${message}
     `;
 
+    // ----------------- SEND EMAIL -----------------
     await sendEmail({
       to: targetUser.email,
       subject: emailSubject,
       text: emailBody,
     });
 
-    // ---------------- UPDATE SENDER RECORD ----------------
-    sender.messagesSent.push({ to: targetUser._id, sentAt: new Date() });
+    // ----------------- UPDATE COOLDOWN -----------------
+    sender.lastMessageSentAt = new Date();
     await sender.save();
 
     return res.status(200).json({ message: "Message sent successfully" });

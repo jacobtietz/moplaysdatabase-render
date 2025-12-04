@@ -40,9 +40,13 @@ const UserSchema = new mongoose.Schema(
     // For password reset flows
     resetPasswordToken: { type: String },
     resetPasswordExpires: { type: Date },
+
+    // ------------------ NEW FIELD ------------------
+    lastMessageSentAt: { type: Date }, // tracks last time user sent a contact message
   },
   { timestamps: true }
 );
+
 
 // -------------------- Password Hashing --------------------
 UserSchema.pre("save", async function (next) {
