@@ -1,6 +1,7 @@
-// backend/utils/Email.js
+// src/utils/Email.js
 import { google } from "googleapis";
 
+// ---------------------- GMAIL SETUP ----------------------
 const CLIENT_ID = process.env.GMAIL_CLIENT_ID;
 const CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET;
 const REDIRECT_URI = "https://developers.google.com/oauthplayground"; // or your redirect URI
@@ -16,17 +17,18 @@ oAuth2Client.setCredentials({ refresh_token: REFRESH_TOKEN });
 
 const gmail = google.gmail({ version: "v1", auth: oAuth2Client });
 
-// ------------------ Helper to encode Gmail raw message ------------------
-function makeRawMessage({ from, to, subject, text }) {
+// ---------------------- HELPER TO CREATE RAW MESSAGE ----------------------
+function makeRawMessage({ from, to, subject, text, html }) {
   const message = [
     `From: ${from}`,
     `To: ${to}`,
     `Subject: ${subject}`,
+    "MIME-Version: 1.0",
+    html ? "Content-Type: text/html; charset=UTF-8" : "Content-Type: text/plain; charset=UTF-8",
     "",
-    text,
+    html || text,
   ].join("\n");
 
-  // Gmail API requires base64url encoding
   return Buffer.from(message)
     .toString("base64")
     .replace(/\+/g, "-")
@@ -34,17 +36,35 @@ function makeRawMessage({ from, to, subject, text }) {
     .replace(/=+$/, "");
 }
 
-// ------------------ Core sendEmail function ------------------
-export async function sendEmail({ from, to, subject, text }) {
-  const raw = makeRawMessage({ from, to, subject, text });
-  await gmail.users.messages.send({
-    userId: "me",
-    requestBody: { raw },
-  });
-}
+// ---------------------- SEND EMAIL ----------------------
+export const sendEmail = async ({ to, subject, text, html, from }) => {
+  if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
+    throw new Error("Gmail API credentials are not set in environment variables.");
+  }
 
-// ------------------ Send account creation or notification emails ------------------
-export async function sendAccountEmail(user, customMessage = null) {
+  try {
+    const raw = makeRawMessage({
+      from: from || "MPDB Support <moplaysdatabase@gmail.com>", // default sender
+      to,
+      subject,
+      text,
+      html,
+    });
+
+    await gmail.users.messages.send({
+      userId: "me",
+      requestBody: { raw },
+    });
+
+    console.log(`✅ Email sent to ${to} successfully.`);
+  } catch (err) {
+    console.error("Gmail API error:", err);
+    throw err;
+  }
+};
+
+// ---------------------- SEND ACCOUNT EMAIL ----------------------
+export const sendAccountEmail = async (user, customMessage = null) => {
   const adminEmail = "moplaysdatabase@gmail.com";
 
   if (!user?.email) {
@@ -121,10 +141,10 @@ We appreciate your patience — thank you!
   });
 
   console.log(`✅ Emails sent to admin and ${email}`);
-}
+};
 
-// ------------------ Contact form email ------------------
-export async function sendContactEmail({ firstName, lastName, emailAddress, mobileNo, message }) {
+// ---------------------- SEND CONTACT EMAIL ----------------------
+export const sendContactEmail = async ({ firstName, lastName, emailAddress, mobileNo, message }) => {
   if (!firstName || !lastName || !emailAddress || !message) {
     throw new Error("All required fields must be filled.");
   }
@@ -145,5 +165,8 @@ ${message}
     text: emailText,
   });
 
-  console.log(`✅ Contact form email sent from ${firstName} ${lastName}`);
-}
+  console.log(`✅ Contact email sent from ${firstName} ${lastName}`);
+};
+
+// ---------------------- DEFAULT EXPORT ----------------------
+export default sendAccountEmail;
