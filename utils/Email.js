@@ -1,3 +1,4 @@
+// backend/utils/Email.js
 import { google } from "googleapis";
 
 const CLIENT_ID = process.env.GMAIL_CLIENT_ID;
@@ -15,6 +16,7 @@ oAuth2Client.setCredentials({ refresh_token: REFRESH_TOKEN });
 
 const gmail = google.gmail({ version: "v1", auth: oAuth2Client });
 
+// ------------------ Helper to encode Gmail raw message ------------------
 function makeRawMessage({ from, to, subject, text }) {
   const message = [
     `From: ${from}`,
@@ -32,7 +34,8 @@ function makeRawMessage({ from, to, subject, text }) {
     .replace(/=+$/, "");
 }
 
-async function sendEmail({ from, to, subject, text }) {
+// ------------------ Core sendEmail function ------------------
+export async function sendEmail({ from, to, subject, text }) {
   const raw = makeRawMessage({ from, to, subject, text });
   await gmail.users.messages.send({
     userId: "me",
@@ -40,7 +43,8 @@ async function sendEmail({ from, to, subject, text }) {
   });
 }
 
-async function sendAccountEmail(user, customMessage = null) {
+// ------------------ Send account creation or notification emails ------------------
+export async function sendAccountEmail(user, customMessage = null) {
   const adminEmail = "moplaysdatabase@gmail.com";
 
   if (!user?.email) {
@@ -119,4 +123,27 @@ We appreciate your patience — thank you!
   console.log(`✅ Emails sent to admin and ${email}`);
 }
 
-export default sendAccountEmail;
+// ------------------ Contact form email ------------------
+export async function sendContactEmail({ firstName, lastName, emailAddress, mobileNo, message }) {
+  if (!firstName || !lastName || !emailAddress || !message) {
+    throw new Error("All required fields must be filled.");
+  }
+
+  const emailText = `
+Name: ${firstName} ${lastName}
+Email: ${emailAddress}
+Phone: ${mobileNo || "N/A"}
+
+Message:
+${message}
+  `;
+
+  await sendEmail({
+    from: "MPDB Support <moplaysdatabase@gmail.com>",
+    to: "moplaysdatabase@gmail.com",
+    subject: `Contact Form Submission from ${firstName} ${lastName}`,
+    text: emailText,
+  });
+
+  console.log(`✅ Contact form email sent from ${firstName} ${lastName}`);
+}
