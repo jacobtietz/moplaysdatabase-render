@@ -6,7 +6,7 @@ const PlaySchema = new mongoose.Schema({
   publicationDate: { type: Date },
   submissionDate: { type: Date, default: Date.now },
   acts: { type: Number },
-  duration: { type: Number }, 
+  duration: { type: Number },
   total: { type: Number },
   males: { type: Number },
   females: { type: Number },
@@ -14,6 +14,10 @@ const PlaySchema = new mongoose.Schema({
   coverImage: { type: String },
   abstract: { type: String },
   genre: { type: String },
+
+  // >>> NEW FIELD <<<
+  organizationType: { type: String },
+
 }, { timestamps: true });
 
 const Play = mongoose.model("Play", PlaySchema);

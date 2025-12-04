@@ -71,32 +71,32 @@ router.get("/", async (req, res) => {
     let query = Play.find(filters).populate("author", "_id firstName lastName");
 
     // ---------------- Search ----------------
-if (search) {
-  const searchTrimmed = search.trim();
-  const searchWords = searchTrimmed.split(" ");
+    if (search) {
+      const searchTrimmed = search.trim();
+      const searchWords = searchTrimmed.split(" ");
 
-  const regex = new RegExp(searchTrimmed, "i"); // full search string
-  const wordRegexes = searchWords.map(w => new RegExp(w, "i")); // individual words
+      const regex = new RegExp(searchTrimmed, "i"); // full search string
+      const wordRegexes = searchWords.map(w => new RegExp(w, "i")); // individual words
 
-  // Find authors that match firstName OR lastName OR fullName
-  const matchingAuthors = await User.find({
-    $or: [
-      { firstName: { $in: wordRegexes } },
-      { lastName: { $in: wordRegexes } },
-      { $expr: { $regexMatch: { input: { $concat: ["$firstName", " ", "$lastName"] }, regex: regex } } }
-    ]
-  }).select("_id");
+      // Find authors that match firstName OR lastName OR fullName
+      const matchingAuthors = await User.find({
+        $or: [
+          { firstName: { $in: wordRegexes } },
+          { lastName: { $in: wordRegexes } },
+          { $expr: { $regexMatch: { input: { $concat: ["$firstName", " ", "$lastName"] }, regex: regex } } }
+        ]
+      }).select("_id");
 
-  const authorIds = matchingAuthors.map(u => u._id);
+      const authorIds = matchingAuthors.map(u => u._id);
 
-  query = query.find({
-    $or: [
-      { title: regex },
-      { abstract: regex },
-      { author: { $in: authorIds } }
-    ]
-  });
-}
+      query = query.find({
+        $or: [
+          { title: regex },
+          { abstract: regex },
+          { author: { $in: authorIds } }
+        ]
+      });
+    }
 
     const totalResults = await query.clone().countDocuments();
     const totalPages = Math.ceil(totalResults / parseInt(limit));
@@ -148,6 +148,7 @@ router.post(
         funding,
         abstract,
         genre,
+        organizationType, // <<< ADDED
       } = req.body;
 
       let coverImage = "";
@@ -173,6 +174,7 @@ router.post(
         coverImage,
         abstract,
         genre,
+        organizationType, // <<< ADDED
       });
 
       await play.save();
@@ -222,6 +224,7 @@ router.put("/:id", protect, upload.single("coverImage"), async (req, res) => {
       funding,
       abstract,
       genre,
+      organizationType, // <<< ADDED
     } = req.body;
 
     if (title) play.title = title;
@@ -234,6 +237,7 @@ router.put("/:id", protect, upload.single("coverImage"), async (req, res) => {
     if (funding) play.funding = funding;
     if (abstract) play.abstract = abstract;
     if (genre) play.genre = genre;
+    if (organizationType) play.organizationType = organizationType; // <<< ADDED
 
     if (req.file) {
       const imgData = fs.readFileSync(req.file.path);
