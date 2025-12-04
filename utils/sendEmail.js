@@ -1,4 +1,3 @@
-import express from "express";
 import { google } from "googleapis";
 
 // ---------------------- GMAIL SETUP ----------------------
@@ -44,7 +43,7 @@ const sendEmail = async ({ to, subject, text, html }) => {
 
   try {
     const raw = makeRawMessage({
-      from: "MPDB Support <yourgmail@gmail.com>", // must match Gmail account
+      from: "MPDB Support <moplaysdatabase@gmail.com>", // must match Gmail account
       to,
       subject,
       text,
@@ -63,17 +62,4 @@ const sendEmail = async ({ to, subject, text, html }) => {
   }
 };
 
-// ---------------------- RECEIVE EMAIL (Webhook Router) ----------------------
-// Gmail API doesn't push events like Resend, so this router is just a placeholder.
-// If you later implement Gmail push notifications, you can handle events here.
-const emailWebhookRouter = express.Router();
-
-emailWebhookRouter.post("/", async (req, res) => {
-  const event = req.body;
-
-  console.log("📩 Received webhook event (placeholder):", event);
-  res.json({ status: "ignored" });
-});
-
 export default sendEmail;
-export { emailWebhookRouter };
