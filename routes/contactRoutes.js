@@ -1,6 +1,6 @@
 // backend/routes/contactRoutes.js
 import express from "express";
-import sendEmail from "../utils/sendEmail.js";
+import sendEmail from "../utils/sendEmail.js"; // should use Gmail API internally
 
 const router = express.Router();
 
@@ -12,18 +12,22 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ message: "All required fields must be filled." });
     }
 
-    // Send email to admin/support
-    await sendEmail({
-      to: "moplaysdatabase@gmail.com", // your support email
-      subject: `Contact Form Submission from ${firstName} ${lastName}`,
-      text: `
+    // Compose email text
+    const emailText = `
 Name: ${firstName} ${lastName}
 Email: ${emailAddress}
 Phone: ${mobileNo || "N/A"}
 
 Message:
 ${message}
-      `,
+    `;
+
+    // Send email using Gmail API
+    await sendEmail({
+      from: "MPDB Support <moplaysdatabase@gmail.com>", // must match Gmail account
+      to: "moplaysdatabase@gmail.com",
+      subject: `Contact Form Submission from ${firstName} ${lastName}`,
+      text: emailText,
     });
 
     res.status(200).json({ message: "Message sent successfully." });
