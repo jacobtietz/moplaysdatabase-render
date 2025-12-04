@@ -32,7 +32,7 @@ async function sendAccountEmail(user, customMessage = null) {
       : "MO Plays Notification";
 
     await resend.emails.send({
-      from: "MO Plays <no-reply@moplays.resend.dev>",
+      from: "MO Plays <no-reply@peutsul.resend.app>",
       to: email,
       subject,
       text: customMessage,
@@ -68,7 +68,7 @@ We appreciate your patience — thank you!
 
   // Send admin email
   await resend.emails.send({
-    from: "MO Plays <no-reply@moplays.resend.dev>",
+    from: "MO Plays <no-reply@peutsul.resend.app>",
     to: adminEmail,
     subject: `New MO Plays Account Created: ${firstName} ${lastName}`,
     text: adminMessage,
@@ -76,7 +76,7 @@ We appreciate your patience — thank you!
 
   // Send user email
   await resend.emails.send({
-    from: "MO Plays <no-reply@moplays.resend.dev>",
+    from: "MO Plays <no-reply@peutsul.resend.app>",
     to: email,
     subject: "Welcome to MO Plays!",
     text: userMessage,
