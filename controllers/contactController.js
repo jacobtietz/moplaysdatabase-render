@@ -1,15 +1,14 @@
 // backend/controllers/contactController.js
 import User from "../models/User.js";
-import { sendContactEmail } from "../utils/Email.js";
+import { sendEmail } from "../utils/Email.js";
 
 /**
- * Send message to a specific user.
- * Only logged-in users can send (sender info taken from req.user).
+ * Send a message from the logged-in user to a target user
  */
 export const contactUser = async (req, res) => {
   try {
     const sender = req.user; // logged-in user
-    const targetUserId = req.params.id;
+    const targetUserId = req.params.id; // user to contact
     const { message } = req.body;
 
     if (!message || !message.trim()) {
@@ -22,14 +21,24 @@ export const contactUser = async (req, res) => {
       return res.status(404).json({ message: "Target user not found" });
     }
 
-    // Use the sendContactEmail utility
-    await sendContactEmail({
-      firstName: sender.firstName,
-      lastName: sender.lastName,
-      emailAddress: sender.email,
-      mobileNo: sender.phone,
-      message: message,
-      to: targetUser.email, // optional if sendContactEmail supports sending to other recipients
+    // Construct the email content
+    const emailSubject = `Message from ${sender.firstName} ${sender.lastName} via MPDB`;
+    const emailBody = `
+You have received a message via MPDB from a registered user:
+
+Name: ${sender.firstName} ${sender.lastName}
+Email: ${sender.email}
+Phone: ${sender.phone || "N/A"}
+
+Message:
+${message}
+    `;
+
+    // Send email to the target user's email
+    await sendEmail({
+      to: targetUser.email,
+      subject: emailSubject,
+      text: emailBody,
     });
 
     return res.status(200).json({ message: "Message sent successfully" });
