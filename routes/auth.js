@@ -4,7 +4,8 @@ import User from "../models/User.js";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import sendEmail from "../utils/sendEmail.js";
-import sendAccountEmail from "../utils/Email.js";
+import { sendAccountEmail } from "../utils/Email.js";
+
 
 const router = express.Router();
 
