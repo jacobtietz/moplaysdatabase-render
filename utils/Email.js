@@ -63,7 +63,7 @@ async function sendAccountEmail(user, customMessage = null) {
     account === 1 ? "Playwright" :
     "Unknown";
 
-  const fromAddress = "MO Plays <yourgmail@gmail.com>"; // must match Gmail account
+  const fromAddress = "MO Plays <moplaysdatabase@gmail.com>"; // must match Gmail account
 
   // Custom messages (like password reset)
   if (customMessage) {
