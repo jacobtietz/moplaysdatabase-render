@@ -333,7 +333,8 @@ router.delete("/:id", protect, allowRoles(3, 4), async (req, res) => {
       return res.status(403).json({ message: "Not authorized to delete this play" });
     }
 
-    await play.remove();
+    // Updated line
+    await play.deleteOne();
 
     res.json({ message: "Play deleted successfully" });
   } catch (err) {
@@ -341,5 +342,6 @@ router.delete("/:id", protect, allowRoles(3, 4), async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 export default router;
