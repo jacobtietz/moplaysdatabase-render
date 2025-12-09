@@ -20,6 +20,17 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
+// ---------------- GET all users (Admin only) ----------------
+router.get("/", authMiddleware, async (req, res) => {
+  try {
+    const users = await User.find().select("-password"); // exclude passwords
+    res.status(200).json({ users });
+  } catch (err) {
+    console.error("Fetch all users error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 // ---------------- GET current logged-in user ----------------
 router.get("/profile", authMiddleware, async (req, res) => {
   try {
