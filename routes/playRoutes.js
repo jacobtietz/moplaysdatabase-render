@@ -300,4 +300,25 @@ router.put("/:id", protect, uploadFields, async (req, res) => {
   }
 });
 
+// ------------------ GET Play Sample ------------------
+router.get("/sample/:id", protect, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const play = await Play.findById(id);
+    if (!play) return res.status(404).json({ message: "Play not found" });
+
+    if (!play.playFile || !play.playFile.data) {
+      return res.status(404).json({ message: "No available play sample" });
+    }
+
+    const fileBuffer = Buffer.from(play.playFile.data, "base64");
+    res.setHeader("Content-Disposition", `attachment; filename="${play.playFile.filename}"`);
+    res.setHeader("Content-Type", play.playFile.mimetype);
+    res.send(fileBuffer);
+  } catch (err) {
+    console.error("Error fetching play sample:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 export default router;

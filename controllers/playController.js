@@ -210,3 +210,25 @@ export const updatePlay = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+// ------------------ GET Play Sample ------------------
+export const getPlaySample = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const play = await Play.findById(id);
+
+    if (!play) return res.status(404).json({ message: "Play not found" });
+
+    if (!play.playFile || !play.playFile.data) {
+      return res.json({ sampleUrl: null });
+    }
+
+    const buffer = Buffer.from(play.playFile.data, "base64");
+    res.setHeader("Content-Disposition", `attachment; filename="${play.playFile.filename}"`);
+    res.setHeader("Content-Type", play.playFile.mimetype);
+    res.send(buffer);
+  } catch (err) {
+    console.error("Error fetching play sample:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
