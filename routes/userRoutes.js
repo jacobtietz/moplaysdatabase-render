@@ -31,6 +31,28 @@ router.get("/", authMiddleware, async (req, res) => {
   }
 });
 
+// ---------------- PUT update a user's account level (Admin only) ----------------
+router.put("/:id/account", authMiddleware, async (req, res) => {
+  try {
+    const { account } = req.body;
+
+    if (account === undefined || ![0, 1, 3, 4].includes(Number(account))) {
+      return res.status(400).json({ message: "Invalid account level" });
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    user.account = Number(account);
+    await user.save();
+
+    res.status(200).json({ message: "Account level updated", user });
+  } catch (err) {
+    console.error("Account update error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 // ---------------- GET current logged-in user ----------------
 router.get("/profile", authMiddleware, async (req, res) => {
   try {
