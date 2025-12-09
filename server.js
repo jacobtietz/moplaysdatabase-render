@@ -12,6 +12,7 @@ import authRoutes from "./routes/auth.js";
 import userRoutes from "./routes/userRoutes.js";
 import playRoutes from "./routes/playRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 
 const app = express();
 
@@ -47,6 +48,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/plays", playRoutes);
 app.use("/api/contact", contactRoutes); // all contact requests handled here
+app.use("/api/admin", adminRoutes);
 
 // ---------------- Test ----------------
 app.get("/api/hello", (req, res) => res.json({ msg: "Hello from backend!" }));
