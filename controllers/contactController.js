@@ -18,7 +18,7 @@ export const contactUser = async (req, res) => {
     }
 
     // ----------------- COOLDOWN LOGIC -----------------
-    const COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+    const COOLDOWN_MS = 15 * 60 * 1000; // 1 hour
     const now = Date.now();
 
     if (sender.lastMessageSentAt && now - sender.lastMessageSentAt.getTime() < COOLDOWN_MS) {
@@ -35,7 +35,7 @@ export const contactUser = async (req, res) => {
     }
 
     // ----------------- ENFORCE CONTACT PERMISSION -----------------
-    if (!targetUser.profile || targetUser.profile.contact !== 1) {
+    if (!targetUser.user || targetUser.user.contact !== 1) {
       return res.status(403).json({ message: "This user cannot be contacted." });
     }
 
