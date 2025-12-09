@@ -4,7 +4,7 @@ import { sendEmail } from "../utils/Email.js";
 
 /**
  * Send a message from the logged-in user to a target user
- * Enforces a cooldown to prevent spamming
+ * Enforces a 15-minute cooldown to prevent spamming
  * Enforces target user's contact preference (contact === 1)
  */
 export const contactUser = async (req, res) => {
@@ -18,11 +18,12 @@ export const contactUser = async (req, res) => {
     }
 
     // ----------------- COOLDOWN LOGIC -----------------
-    const COOLDOWN_MS = 15 * 60 * 1000; // 1 hour
+    const COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes
     const now = Date.now();
+    const lastSent = sender.lastMessageSentAt ? new Date(sender.lastMessageSentAt).getTime() : 0;
 
-    if (sender.lastMessageSentAt && now - sender.lastMessageSentAt.getTime() < COOLDOWN_MS) {
-      const waitTime = Math.ceil((COOLDOWN_MS - (now - sender.lastMessageSentAt.getTime())) / 60000);
+    if (now - lastSent < COOLDOWN_MS) {
+      const waitTime = Math.ceil((COOLDOWN_MS - (now - lastSent)) / 60000);
       return res.status(429).json({ 
         message: `Please wait ${waitTime} more minute(s) before sending another message.` 
       });
@@ -35,7 +36,7 @@ export const contactUser = async (req, res) => {
     }
 
     // ----------------- ENFORCE CONTACT PERMISSION -----------------
-    if (!targetUser.user || targetUser.user.contact !== 1) {
+    if (Number(targetUser.contact) !== 1) {
       return res.status(403).json({ message: "This user cannot be contacted." });
     }
 
