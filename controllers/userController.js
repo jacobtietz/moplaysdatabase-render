@@ -1,11 +1,11 @@
 import User from "../models/User.js";
-import fs from "fs";
 
 // -------------------- GET current logged-in user's profile (protected) --------------------
 export const getUserProfile = async (req, res) => {
   try {
-    if (!req.user) return res.status(404).json({ message: "User not found" });
-    res.json({ user: req.user });
+    const user = await User.findById(req.userId).select("-password");
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json({ user });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
@@ -27,42 +27,39 @@ export const getUserById = async (req, res) => {
 // -------------------- UPDATE current logged-in user's profile (protected) --------------------
 export const updateUserProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    const { firstName, lastName, phone, contact, profile } = req.body;
+    const { firstName, lastName, phone, contact, account, schoolName, profile } = req.body;
 
-    // Update main user fields
-    user.firstName = firstName?.trim() || " ";
-    user.lastName = lastName?.trim() || " ";
-    user.phone = phone?.trim() || " ";
-    if (contact !== undefined) user.contact = contact;
+    // --- Update main user fields ---
+    if (firstName) user.firstName = firstName.trim() || " ";
+    if (lastName) user.lastName = lastName.trim() || " ";
+    if (phone) user.phone = phone.trim() || " ";
+    if (contact !== undefined) user.contact = Number(contact);
+    if (account !== undefined) user.account = Number(account);
+    if (schoolName) user.schoolName = schoolName;
 
-    // Handle profilePicture upload (from FormData)
-    if (req.files?.profilePicture?.[0]) {
-      const file = req.files.profilePicture[0];
-      const fileData = fs.readFileSync(file.path);
-      user.profile.profilePicture = `data:${file.mimetype};base64,${fileData.toString("base64")}`;
-      fs.unlinkSync(file.path);
+    // --- Handle profile picture ---
+    if (req.file) {
+      const base64Image = req.file.buffer.toString("base64");
+      user.profile = user.profile || {};
+      user.profile.profilePicture = `data:${req.file.mimetype};base64,${base64Image}`;
     }
 
-    // Parse profile object if sent as JSON string
+    // --- Parse profile JSON if provided ---
     let profileData = {};
     if (profile) {
-      if (typeof profile === "string") {
-        try {
-          profileData = JSON.parse(profile);
-        } catch (err) {
-          console.warn("Failed to parse profile JSON, using empty object.");
-        }
-      } else {
-        profileData = profile;
+      try {
+        profileData = typeof profile === "string" ? JSON.parse(profile) : profile;
+      } catch {
+        profileData = {};
       }
     }
 
-    // Update only provided profile fields, default to space if blank
+    // --- Merge profile fields ---
     user.profile = {
-      ...user.profile.toObject(),
+      ...user.profile,
       description: profileData.description?.trim() || " ",
       biography: profileData.biography?.trim() || " ",
       companyName: profileData.companyName?.trim() || " ",
@@ -70,11 +67,11 @@ export const updateUserProfile = async (req, res) => {
       stateCity: profileData.stateCity?.trim() || " ",
       country: profileData.country?.trim() || " ",
       website: profileData.website?.trim() || " ",
-      profilePicture: user.profile.profilePicture || user.profile.profilePicture || "", // retain existing if not updated
+      profilePicture: user.profile?.profilePicture || "",
     };
 
     await user.save();
-    res.json({ message: "Profile updated", user });
+    res.json({ message: "Profile updated successfully", user });
   } catch (err) {
     console.error("Error updating profile:", err);
     res.status(500).json({ message: "Server error" });

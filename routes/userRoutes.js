@@ -36,7 +36,7 @@ router.put("/:id/account", authMiddleware, async (req, res) => {
   try {
     const { account } = req.body;
 
-    if (account === undefined || ![0, 1, 3, 4].includes(Number(account))) {
+    if (account === undefined || ![0, 1, 2, 3, 4].includes(Number(account))) {
       return res.status(400).json({ message: "Invalid account level" });
     }
 
@@ -99,60 +99,44 @@ router.put("/profile", authMiddleware, upload.single("profilePicture"), async (r
     const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    const {
-      firstName,
-      lastName,
-      phone,
-      account,
-      contact,
-      schoolName,
-      description,
-      biography,
-      companyName,
-      street,
-      stateCity,
-      country,
-      website,
-    } = req.body;
+    const { firstName, lastName, phone, contact, account, schoolName, profile } = req.body;
 
-    // --- Validation ---
-    if (firstName && firstName.length > 20) return res.status(400).json({ message: "First name too long" });
-    if (lastName && lastName.length > 20) return res.status(400).json({ message: "Last name too long" });
-    if (description && description.length > 450) return res.status(400).json({ message: "Description too long" });
-    if (biography && biography.length > 2000) return res.status(400).json({ message: "Biography too long" });
-    if (schoolName && schoolName.length > 100) return res.status(400).json({ message: "School name too long" });
-    if (companyName && companyName.length > 100) return res.status(400).json({ message: "Company name too long" });
-    if (street && street.length > 100) return res.status(400).json({ message: "Street too long" });
-    if (stateCity && stateCity.length > 100) return res.status(400).json({ message: "State & City too long" });
-    if (country && country.length > 50) return res.status(400).json({ message: "Country too long" });
-    if (account && ![0,1,2,3,4].includes(Number(account))) return res.status(400).json({ message: "Invalid account type" });
-    if (contact && ![0,1].includes(Number(contact))) return res.status(400).json({ message: "Invalid contact value" });
-
-    // --- Update fields ---
-    if (firstName) user.firstName = firstName;
-    if (lastName) user.lastName = lastName;
-    if (phone) user.phone = phone;
-    if (account !== undefined) user.account = Number(account);
+    // --- Update main user fields ---
+    if (firstName) user.firstName = firstName.trim() || " ";
+    if (lastName) user.lastName = lastName.trim() || " ";
+    if (phone) user.phone = phone.trim() || " ";
     if (contact !== undefined) user.contact = Number(contact);
+    if (account !== undefined) user.account = Number(account);
     if (schoolName) user.schoolName = schoolName;
 
-    // --- Update profile object ---
-    if (!user.profile) user.profile = {};
-
-    if (description) user.profile.description = description;
-    if (biography) user.profile.biography = biography;
-    if (companyName) user.profile.companyName = companyName;
-    if (street) user.profile.street = street;
-    if (stateCity) user.profile.stateCity = stateCity;
-    if (country) user.profile.country = country;
-    if (website) user.profile.website = website;
-
-    // --- Profile picture ---
+    // --- Handle profile picture ---
     if (req.file) {
       const base64Image = req.file.buffer.toString("base64");
-      const mimeType = req.file.mimetype;
-      user.profile.profilePicture = `data:${mimeType};base64,${base64Image}`;
+      user.profile = user.profile || {};
+      user.profile.profilePicture = `data:${req.file.mimetype};base64,${base64Image}`;
     }
+
+    // --- Parse nested profile object if provided ---
+    let profileData = {};
+    if (profile) {
+      try {
+        profileData = typeof profile === "string" ? JSON.parse(profile) : profile;
+      } catch {
+        profileData = {};
+      }
+    }
+
+    user.profile = {
+      ...user.profile,
+      description: profileData.description?.trim() || " ",
+      biography: profileData.biography?.trim() || " ",
+      companyName: profileData.companyName?.trim() || " ",
+      street: profileData.street?.trim() || " ",
+      stateCity: profileData.stateCity?.trim() || " ",
+      country: profileData.country?.trim() || " ",
+      website: profileData.website?.trim() || " ",
+      profilePicture: user.profile?.profilePicture || "",
+    };
 
     await user.save();
     res.status(200).json({ message: "Profile updated successfully", user });
