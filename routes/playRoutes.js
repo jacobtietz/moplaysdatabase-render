@@ -208,7 +208,7 @@ router.post("/", protect, allowRoles(3, 4), uploadFields, async (req, res) => {
       females: females ? Number(females) : undefined,
       funding,
       coverImage,
-      playFile, // <<< Added for PDF/DOCX
+      playFile,
       abstract,
       genre,
       organizationType,
@@ -317,6 +317,27 @@ router.get("/sample/:id", protect, async (req, res) => {
     res.send(fileBuffer);
   } catch (err) {
     console.error("Error fetching play sample:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ------------------ DELETE Play ------------------
+router.delete("/:id", protect, allowRoles(3, 4), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const play = await Play.findById(id);
+    if (!play) return res.status(404).json({ message: "Play not found" });
+
+    // Only author or admin (account 4) can delete
+    if (String(req.user._id) !== String(play.author) && req.user.account < 4) {
+      return res.status(403).json({ message: "Not authorized to delete this play" });
+    }
+
+    await play.remove();
+
+    res.json({ message: "Play deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting play:", err);
     res.status(500).json({ message: "Server error" });
   }
 });

@@ -232,3 +232,23 @@ export const getPlaySample = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+// ------------------ DELETE Play ------------------
+export const deletePlay = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const play = await Play.findById(id);
+    if (!play) return res.status(404).json({ message: "Play not found" });
+
+    // Only author or admin can delete
+    if (req.user._id.toString() !== play.author.toString() && req.user.account < 4) {
+      return res.status(403).json({ message: "Not authorized to delete this play" });
+    }
+
+    await play.remove();
+    res.json({ message: "Play deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting play:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
