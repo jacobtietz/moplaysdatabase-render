@@ -5,6 +5,7 @@ import { sendEmail } from "../utils/Email.js";
 /**
  * Send a message from the logged-in user to a target user
  * Enforces a cooldown to prevent spamming
+ * Enforces target user's contact preference (contact === 1)
  */
 export const contactUser = async (req, res) => {
   try {
@@ -31,6 +32,11 @@ export const contactUser = async (req, res) => {
     const targetUser = await User.findById(targetUserId);
     if (!targetUser) {
       return res.status(404).json({ message: "Target user not found" });
+    }
+
+    // ----------------- ENFORCE CONTACT PERMISSION -----------------
+    if (!targetUser.profile || targetUser.profile.contact !== 1) {
+      return res.status(403).json({ message: "This user cannot be contacted." });
     }
 
     // ----------------- CONSTRUCT EMAIL -----------------
