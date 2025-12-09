@@ -1,54 +1,53 @@
-// backend/routes/adminRoutes.js
+// routes/adminRoutes.js
 import express from "express";
 import User from "../models/User.js";
 import { protect, allowRoles } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// ------------------------
-// GET all users (admin only)
-// ------------------------
+// ---------------- GET all users (admin only) ----------------
 router.get("/users", protect, allowRoles(4), async (req, res) => {
   try {
-    // Fetch all users, excluding passwords
     const users = await User.find().select("-password");
-
-    // Example: you can access the current admin's account level
-    // console.log("Admin account level:", req.user.account);
-
     res.status(200).json({ users });
   } catch (err) {
-    console.error("Failed to fetch users:", err);
-    res.status(500).json({ message: "Failed to fetch users" });
+    console.error("Fetch all users error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
-// --------------------------------------
-// PUT update account level of a specific user (admin only)
-// --------------------------------------
+// ---------------- UPDATE a user's account level ----------------
 router.put("/users/:id/account", protect, allowRoles(4), async (req, res) => {
+  try {
+    const { account } = req.body;
+    if (![0, 1, 3, 4].includes(Number(account))) {
+      return res.status(400).json({ message: "Invalid account type" });
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    user.account = Number(account);
+    await user.save();
+
+    res.status(200).json({ message: "Account updated", user });
+  } catch (err) {
+    console.error("Update account error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ---------------- DELETE a user ----------------
+router.delete("/users/:id", protect, allowRoles(4), async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    const { account } = req.body;
-
-    // Validate account level
-    if (![0, 1, 2, 3, 4].includes(account)) {
-      return res.status(400).json({ message: "Invalid account level" });
-    }
-
-    // Update the user's account level
-    user.account = account;
-    await user.save();
-
-    res.status(200).json({
-      message: "Account updated successfully",
-      user, // user.account now reflects the updated level
-    });
+    await user.deleteOne();
+    res.status(200).json({ message: "User deleted" });
   } catch (err) {
-    console.error("Failed to update account:", err);
-    res.status(500).json({ message: "Failed to update account" });
+    console.error("Delete user error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
