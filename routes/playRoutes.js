@@ -10,7 +10,7 @@ import { protect, allowRoles } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// ---------------- Multer setup for image uploads ----------------
+// ---------------- Multer setup for image & file uploads ----------------
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     const dir = "./uploads";
@@ -21,7 +21,34 @@ const storage = multer.diskStorage({
     cb(null, Date.now() + path.extname(file.originalname));
   },
 });
-const upload = multer({ storage });
+
+// Accept images for coverImage and PDF/DOCX for playFile
+const upload = multer({
+  storage,
+  fileFilter: (req, file, cb) => {
+    const allowedImageTypes = ["image/jpeg", "image/png", "image/jpg"];
+    const allowedDocTypes = [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ];
+
+    if (file.fieldname === "coverImage") {
+      if (allowedImageTypes.includes(file.mimetype)) cb(null, true);
+      else cb(new Error("Only JPG, JPEG, PNG images are allowed for cover image"));
+    } else if (file.fieldname === "playFile") {
+      if (allowedDocTypes.includes(file.mimetype)) cb(null, true);
+      else cb(new Error("Only PDF or DOCX files are allowed for play preview"));
+    } else {
+      cb(new Error("Invalid file type"));
+    }
+  },
+});
+
+// For handling multiple fields: coverImage and playFile
+const uploadFields = upload.fields([
+  { name: "coverImage", maxCount: 1 },
+  { name: "playFile", maxCount: 1 },
+]);
 
 // ------------------ GET Plays (Filters, Search, Pagination) ------------------
 router.get("/", async (req, res) => {
@@ -76,25 +103,28 @@ router.get("/", async (req, res) => {
       const searchWords = searchTrimmed.split(" ");
 
       const regex = new RegExp(searchTrimmed, "i"); // full search string
-      const wordRegexes = searchWords.map(w => new RegExp(w, "i")); // individual words
+      const wordRegexes = searchWords.map((w) => new RegExp(w, "i")); // individual words
 
       // Find authors that match firstName OR lastName OR fullName
       const matchingAuthors = await User.find({
         $or: [
           { firstName: { $in: wordRegexes } },
           { lastName: { $in: wordRegexes } },
-          { $expr: { $regexMatch: { input: { $concat: ["$firstName", " ", "$lastName"] }, regex: regex } } }
-        ]
+          {
+            $expr: {
+              $regexMatch: {
+                input: { $concat: ["$firstName", " ", "$lastName"] },
+                regex: regex,
+              },
+            },
+          },
+        ],
       }).select("_id");
 
-      const authorIds = matchingAuthors.map(u => u._id);
+      const authorIds = matchingAuthors.map((u) => u._id);
 
       query = query.find({
-        $or: [
-          { title: regex },
-          { abstract: regex },
-          { author: { $in: authorIds } }
-        ]
+        $or: [{ title: regex }, { abstract: regex }, { author: { $in: authorIds } }],
       });
     }
 
@@ -130,63 +160,69 @@ router.get("/", async (req, res) => {
 });
 
 // ------------------ POST a New Play ------------------
-router.post(
-  "/",
-  protect,
-  upload.single("coverImage"),
-  allowRoles(3, 4),
-  async (req, res) => {
-    try {
-      const {
-        title,
-        publicationDate,
-        acts,
-        duration,
-        total,
-        males,
-        females,
-        funding,
-        abstract,
-        genre,
-        organizationType, // <<< ADDED
-      } = req.body;
+router.post("/", protect, allowRoles(3, 4), uploadFields, async (req, res) => {
+  try {
+    const {
+      title,
+      publicationDate,
+      acts,
+      duration,
+      total,
+      males,
+      females,
+      funding,
+      abstract,
+      genre,
+      organizationType,
+    } = req.body;
 
-      let coverImage = "";
-      if (req.file) {
-        const imgData = fs.readFileSync(req.file.path);
-        coverImage = `data:${req.file.mimetype};base64,${imgData.toString(
-          "base64"
-        )}`;
-        fs.unlinkSync(req.file.path);
-      }
-
-      const play = new Play({
-        title,
-        author: req.user._id,
-        publicationDate: publicationDate ? new Date(publicationDate) : undefined,
-        submissionDate: new Date(),
-        acts: acts ? Number(acts) : undefined,
-        duration: duration ? Number(duration) : undefined,
-        total: total ? Number(total) : undefined,
-        males: males ? Number(males) : undefined,
-        females: females ? Number(females) : undefined,
-        funding,
-        coverImage,
-        abstract,
-        genre,
-        organizationType, // <<< ADDED
-      });
-
-      await play.save();
-      await play.populate("author", "firstName lastName");
-
-      res.status(201).json({ message: "Play created successfully", play });
-    } catch (err) {
-      console.error("Error saving play:", err);
-      res.status(500).json({ message: err.message });
+    let coverImage = "";
+    if (req.files?.coverImage?.[0]) {
+      const imgData = fs.readFileSync(req.files.coverImage[0].path);
+      coverImage = `data:${req.files.coverImage[0].mimetype};base64,${imgData.toString(
+        "base64"
+      )}`;
+      fs.unlinkSync(req.files.coverImage[0].path);
     }
+
+    let playFile = "";
+    if (req.files?.playFile?.[0]) {
+      const fileData = fs.readFileSync(req.files.playFile[0].path);
+      playFile = {
+        filename: req.files.playFile[0].originalname,
+        mimetype: req.files.playFile[0].mimetype,
+        data: fileData.toString("base64"),
+      };
+      fs.unlinkSync(req.files.playFile[0].path);
+    }
+
+    const play = new Play({
+      title,
+      author: req.user._id,
+      publicationDate: publicationDate ? new Date(publicationDate) : undefined,
+      submissionDate: new Date(),
+      acts: acts ? Number(acts) : undefined,
+      duration: duration ? Number(duration) : undefined,
+      total: total ? Number(total) : undefined,
+      males: males ? Number(males) : undefined,
+      females: females ? Number(females) : undefined,
+      funding,
+      coverImage,
+      playFile, // <<< Added for PDF/DOCX
+      abstract,
+      genre,
+      organizationType,
+    });
+
+    await play.save();
+    await play.populate("author", "firstName lastName");
+
+    res.status(201).json({ message: "Play created successfully", play });
+  } catch (err) {
+    console.error("Error saving play:", err);
+    res.status(500).json({ message: err.message });
   }
-);
+});
 
 // ------------------ GET Single Play by ID ------------------
 router.get("/:id", protect, async (req, res) => {
@@ -202,13 +238,12 @@ router.get("/:id", protect, async (req, res) => {
 });
 
 // ------------------ PUT Update Play ------------------
-router.put("/:id", protect, upload.single("coverImage"), async (req, res) => {
+router.put("/:id", protect, uploadFields, async (req, res) => {
   try {
     const { id } = req.params;
     const play = await Play.findById(id);
     if (!play) return res.status(404).json({ message: "Play not found" });
 
-    // Authorization: only author or admin
     if (String(req.user._id) !== String(play.author) && req.user.account < 4) {
       return res.status(403).json({ message: "Not authorized to edit this play" });
     }
@@ -224,7 +259,7 @@ router.put("/:id", protect, upload.single("coverImage"), async (req, res) => {
       funding,
       abstract,
       genre,
-      organizationType, // <<< ADDED
+      organizationType,
     } = req.body;
 
     if (title) play.title = title;
@@ -237,14 +272,24 @@ router.put("/:id", protect, upload.single("coverImage"), async (req, res) => {
     if (funding) play.funding = funding;
     if (abstract) play.abstract = abstract;
     if (genre) play.genre = genre;
-    if (organizationType) play.organizationType = organizationType; // <<< ADDED
+    if (organizationType) play.organizationType = organizationType;
 
-    if (req.file) {
-      const imgData = fs.readFileSync(req.file.path);
-      play.coverImage = `data:${req.file.mimetype};base64,${imgData.toString(
+    if (req.files?.coverImage?.[0]) {
+      const imgData = fs.readFileSync(req.files.coverImage[0].path);
+      play.coverImage = `data:${req.files.coverImage[0].mimetype};base64,${imgData.toString(
         "base64"
       )}`;
-      fs.unlinkSync(req.file.path);
+      fs.unlinkSync(req.files.coverImage[0].path);
+    }
+
+    if (req.files?.playFile?.[0]) {
+      const fileData = fs.readFileSync(req.files.playFile[0].path);
+      play.playFile = {
+        filename: req.files.playFile[0].originalname,
+        mimetype: req.files.playFile[0].mimetype,
+        data: fileData.toString("base64"),
+      };
+      fs.unlinkSync(req.files.playFile[0].path);
     }
 
     await play.save();

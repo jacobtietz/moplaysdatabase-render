@@ -1,6 +1,7 @@
 import Play from "../models/Play.js";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js"; // make sure User model is imported
+import fs from "fs";
 
 // ------------------ GET Play by ID (public) ------------------
 export const getPlayById = async (req, res) => {
@@ -13,7 +14,9 @@ export const getPlayById = async (req, res) => {
     res.json({
       ...play.toObject(),
       authorId: play.author?._id,
-      author: play.author ? `${play.author.firstName} ${play.author.lastName}` : "Anonymous",
+      author: play.author
+        ? `${play.author.firstName} ${play.author.lastName}`
+        : "Anonymous",
     });
   } catch (err) {
     console.error("Error fetching play:", err);
@@ -69,10 +72,8 @@ export const getPlays = async (req, res) => {
     let query = Play.find(filters).populate("author", "_id firstName lastName");
 
     if (search) {
-      // Case-insensitive search on title, abstract, or author's first/last name
       const regex = new RegExp(search, "i");
 
-      // Get author IDs matching the search first or last name
       const matchingAuthors = await User.find({
         $or: [{ firstName: regex }, { lastName: regex }],
       }).select("_id");
@@ -98,7 +99,9 @@ export const getPlays = async (req, res) => {
     const formattedPlays = plays.map((play) => ({
       ...play.toObject(),
       authorId: play.author?._id,
-      author: play.author ? `${play.author.firstName} ${play.author.lastName}` : "Anonymous",
+      author: play.author
+        ? `${play.author.firstName} ${play.author.lastName}`
+        : "Anonymous",
     }));
 
     res.json({
@@ -121,7 +124,6 @@ export const generateEditToken = async (req, res) => {
 
     if (!play) return res.status(404).json({ message: "Play not found" });
 
-    // Only author or admin can get edit token
     if (req.user._id.toString() !== play.author.toString() && req.user.account !== 4) {
       return res.status(403).json({ message: "Not authorized to edit this play" });
     }
@@ -129,7 +131,7 @@ export const generateEditToken = async (req, res) => {
     const token = jwt.sign(
       { userId: req.user._id, account: req.user.account, playId },
       process.env.JWT_SECRET,
-      { expiresIn: "15m" } // short-lived token
+      { expiresIn: "15m" }
     );
 
     res.json({ editToken: token });
@@ -143,7 +145,16 @@ export const generateEditToken = async (req, res) => {
 export const updatePlay = async (req, res) => {
   try {
     const { playId } = req.params;
-    const { title, genre, duration, males, females, acts, funding, abstract } = req.body;
+    const {
+      title,
+      genre,
+      duration,
+      males,
+      females,
+      acts,
+      funding,
+      abstract,
+    } = req.body;
 
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ message: "Missing token" });
@@ -163,7 +174,6 @@ export const updatePlay = async (req, res) => {
     const play = await Play.findById(playId);
     if (!play) return res.status(404).json({ message: "Play not found" });
 
-    // Check if the editor is the author or admin
     if (decoded.userId !== play.author.toString() && decoded.account !== 4) {
       return res.status(403).json({ message: "Not authorized to edit this play" });
     }
@@ -177,6 +187,21 @@ export const updatePlay = async (req, res) => {
     if (acts) play.acts = acts;
     if (funding) play.funding = funding;
     if (abstract) play.abstract = abstract;
+
+    // Handle playFile upload if included (PDF/DOCX)
+    if (req.file) {
+      const allowedTypes = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
+      if (!allowedTypes.includes(req.file.mimetype)) {
+        return res.status(400).json({ message: "Invalid file type. Only PDF or DOCX allowed." });
+      }
+      const fileData = fs.readFileSync(req.file.path);
+      play.playFile = {
+        filename: req.file.originalname,
+        mimetype: req.file.mimetype,
+        data: fileData.toString("base64"),
+      };
+      fs.unlinkSync(req.file.path);
+    }
 
     await play.save();
     res.json({ message: "Play updated successfully", play });
